@@ -7,6 +7,7 @@ from .upsert import upsert, bulk_upsert
 from .webhook import WhatsAppWebhookPayload
 from .opt_out import OptOut
 from .trip_album import TripAlbum
+from .expense import Expense, ExpenseParticipant
 
 __all__ = [
     "Group",
@@ -24,4 +25,6 @@ __all__ = [
     "KBTopicCreate",
     "OptOut",
     "TripAlbum",
+    "Expense",
+    "ExpenseParticipant",
 ]
