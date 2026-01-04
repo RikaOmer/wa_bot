@@ -6,6 +6,7 @@ from .reaction import Reaction, BaseReaction
 from .upsert import upsert, bulk_upsert
 from .webhook import WhatsAppWebhookPayload
 from .opt_out import OptOut
+from .trip_album import TripAlbum
 
 __all__ = [
     "Group",
@@ -22,4 +23,5 @@ __all__ = [
     "KBTopic",
     "KBTopicCreate",
     "OptOut",
+    "TripAlbum",
 ]
