@@ -5,7 +5,7 @@ from typing import Optional
 
 import httpx
 
-from .models import Album, BatchCreateMediaItemsResponse, ShareInfo
+from .models import Album, BatchCreateMediaItemsResponse
 
 logger = logging.getLogger(__name__)
 
@@ -87,38 +87,6 @@ class GooglePhotosClient:
         response = await self.client.get(f"{self.BASE_URL}/albums/{album_id}")
         response.raise_for_status()
         return Album.model_validate(response.json())
-
-    async def share_album(
-        self,
-        album_id: str,
-        is_collaborative: bool = False,
-        is_commentable: bool = True,
-    ) -> ShareInfo:
-        """
-        Share an album so anyone with the link can view it.
-
-        Args:
-            album_id: The Google Photos album ID to share.
-            is_collaborative: If True, other users can add photos to the album.
-            is_commentable: If True, other users can comment on photos.
-
-        Returns:
-            ShareInfo object with the shareable URL.
-
-        Raises:
-            httpx.HTTPStatusError: If the request fails.
-        """
-        response = await self.client.post(
-            f"{self.BASE_URL}/albums/{album_id}:share",
-            json={
-                "sharedAlbumOptions": {
-                    "isCollaborative": is_collaborative,
-                    "isCommentable": is_commentable,
-                }
-            },
-        )
-        response.raise_for_status()
-        return ShareInfo.model_validate(response.json().get("shareInfo", {}))
 
     async def upload_media_bytes(
         self,

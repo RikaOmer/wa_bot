@@ -15,16 +15,6 @@ class TokenResponse(BaseModel):
     scope: Optional[str] = None
 
 
-class ShareInfo(BaseModel):
-    """Sharing information for a Google Photos album."""
-
-    shareable_url: Optional[str] = Field(None, alias="shareableUrl")
-    share_token: Optional[str] = Field(None, alias="shareToken")
-    is_joinable: Optional[bool] = Field(None, alias="isJoinable")
-    is_joined: Optional[bool] = Field(None, alias="isJoined")
-    is_owned: Optional[bool] = Field(None, alias="isOwned")
-
-
 class Album(BaseModel):
     """Google Photos album."""
 
@@ -37,7 +27,6 @@ class Album(BaseModel):
     cover_photo_media_item_id: Optional[str] = Field(
         None, alias="coverPhotoMediaItemId"
     )
-    share_info: Optional[ShareInfo] = Field(None, alias="shareInfo")
 
 
 class MediaItemResult(BaseModel):
