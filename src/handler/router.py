@@ -10,6 +10,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from voyageai.client_async import AsyncClient
 
 from handler.knowledge_base_answers import KnowledgeBaseAnswers
+from handler.expense import ExpenseHandler
 from models import Message
 from whatsapp.jid import parse_jid
 from utils.chat_text import chat2text
@@ -27,6 +28,7 @@ logger = logging.getLogger(__name__)
 class IntentEnum(str, Enum):
     summarize = "summarize"
     ask_question = "ask_question"
+    expense = "expense"
     about = "about"
     other = "other"
 
@@ -36,6 +38,7 @@ class Intent(BaseModel):
         description="""The intent of the message.
 - summarize: Summarize TODAY's chat messages, or catch up on the chat messages FROM TODAY ONLY. This will trigger the summarization of the chat messages. This is only relevant for queries about TODDAY chat. A query across a broader timespan is classified as ask_question
 - ask_question: Ask a question or learn from the collective knowledge of the group. This will trigger the knowledge base to answer the question.
+- expense: Track shared expenses like Splitwise. This includes adding expenses (e.g., "שילמתי 50 שקל על פיצה לכולם") or querying balances (e.g., "כמה כל אחד חייב?", "מי חייב למי?"). Keywords: שילמתי, הוצאתי, קניתי, חייב, מאזן, הוצאות.
 - about: Learn about me(bot) and my capabilities. This will trigger the about section.
 - other:  something else. This will trigger the default response."""
     )
@@ -53,6 +56,9 @@ class Router(BaseHandler):
         self.ask_knowledge_base = KnowledgeBaseAnswers(
             session, whatsapp, embedding_client, settings
         )
+        self.expense_handler = ExpenseHandler(
+            session, whatsapp, embedding_client, settings
+        )
         super().__init__(session, whatsapp, embedding_client)
 
     async def __call__(self, message: Message):
@@ -60,11 +66,16 @@ class Router(BaseHandler):
             return
 
         route = await self._route(message.text)
+        logger.info(f"Router detected intent: {route} for message: {message.text[:50]}...")
+
         match route:
             case IntentEnum.summarize:
                 await self.summarize(message)
             case IntentEnum.ask_question:
                 await self.ask_knowledge_base(message)
+            case IntentEnum.expense:
+                logger.info("Routing to ExpenseHandler")
+                await self.expense_handler(message)
             case IntentEnum.about:
                 await self.about(message)
             case IntentEnum.other:
