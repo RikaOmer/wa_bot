@@ -34,6 +34,11 @@ class TripAlbum(SQLModel, table=True):
         max_length=255,
         description="Album title in Google Photos",
     )
+    album_url: Optional[str] = Field(
+        default=None,
+        sa_column=Column(Text, nullable=True),
+        description="Shareable URL for the album (anyone with link can view)",
+    )
     google_refresh_token: Optional[str] = Field(
         default=None,
         sa_column=Column(Text, nullable=True),

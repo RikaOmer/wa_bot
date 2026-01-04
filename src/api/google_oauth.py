@@ -181,20 +181,36 @@ async def google_oauth_callback(
         logger.error(f"Failed to exchange OAuth code: {e}")
         raise HTTPException(status_code=400, detail="Failed to exchange authorization code")
 
-    # Create album in Google Photos
+    # Create the album in Google Photos
     album_title = f"Trip: {group.group_name or group_jid}"
-    try:
-        async with GooglePhotosClient(token_response.access_token) as photos_client:
+    
+    async with GooglePhotosClient(token_response.access_token) as photos_client:
+        # Create the album
+        try:
             album = await photos_client.create_album(album_title)
-    except Exception as e:
-        logger.error(f"Failed to create Google Photos album: {e}")
-        raise HTTPException(status_code=500, detail="Failed to create album in Google Photos")
+            logger.info(f"Album created successfully: id={album.id}, title={album.title}")
+        except Exception as e:
+            error_detail = str(e)
+            if hasattr(e, 'response'):
+                try:
+                    error_detail = f"{e} - Response: {e.response.text}"  # type: ignore
+                except Exception:
+                    pass
+            logger.error(f"Failed to create album: {error_detail}")
+            raise HTTPException(status_code=500, detail="Failed to create album in Google Photos")
+
+        # Note: Google deprecated the albums.share API method in 2024
+        # Users must manually share the album from Google Photos
+        # We use the productUrl which links to the album in the owner's account
+        album_url = album.product_url
+        logger.info(f"Album created with productUrl: {album_url}")
 
     # Save the TripAlbum record
     trip_album = TripAlbum(
         group_jid=group_jid,
         album_id=album.id,
         album_title=album.title or album_title,
+        album_url=album_url,
         google_refresh_token=token_response.refresh_token,
         google_access_token=token_response.access_token,
         token_expiry=oauth.calculate_expiry(token_response.expires_in),
@@ -205,14 +221,17 @@ async def google_oauth_callback(
     await session.commit()
 
     # Send confirmation message to the group
+    # Note: User must manually share the album from Google Photos for others to view
     try:
         await whatsapp.send_message(
             request={
                 "phone": group_jid,
                 "message": f"✅ Trip album created successfully!\n\n"
                 f"📸 Album: {album.title}\n"
-                f"🔗 {album.product_url or 'Album created'}\n\n"
-                f"All photos sent in this group will now be uploaded to the album.",
+                f"🔗 {album_url}\n\n"
+                f"⚠️ *Important*: To let others view the album, please open the link above "
+                f"and tap 'Share' → 'Get link' in Google Photos.\n\n"
+                f"All photos sent in this group will be uploaded automatically.",
             }
         )
     except Exception as e:

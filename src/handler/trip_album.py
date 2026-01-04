@@ -62,10 +62,12 @@ class TripAlbumHandler(BaseHandler):
         # Check if album already exists for this group
         existing_album = await self.session.get(TripAlbum, message.group_jid)
         if existing_album and existing_album.album_id:
+            album_link = existing_album.album_url or "Link not available"
             await self.send_message(
                 message.chat_jid,
                 f"📸 A trip album is already set up for this group!\n\n"
-                f"Album: {existing_album.album_title}\n\n"
+                f"Album: {existing_album.album_title}\n"
+                f"🔗 {album_link}\n\n"
                 f"All photos are being uploaded automatically.",
                 message.message_id,
             )
