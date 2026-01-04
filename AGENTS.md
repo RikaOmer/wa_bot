@@ -33,5 +33,5 @@
 - Gating: ensure `ruff`, `pyright`, and `pytest` pass locally.
 
 ## Security & Configuration Tips
-- Secrets live in `.env` (root). Required keys include: `DB_URI`, `WHATSAPP_HOST`, `VOYAGE_API_KEY`, `ANTHROPIC_API_KEY`, `LOGFIRE_TOKEN`.
+- Secrets live in `.env` (root). Required keys include: `DB_URI`, `WHATSAPP_HOST`, `VOYAGE_API_KEY`, `OPENAI_API_KEY`, `LOGFIRE_TOKEN`.
 - DB migrations: `alembic upgrade head`; create new migration with `alembic revision --autogenerate -m "<msg>"`.

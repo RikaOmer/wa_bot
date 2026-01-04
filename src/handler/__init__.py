@@ -9,6 +9,7 @@ from config import Settings
 from handler.router import Router
 from handler.whatsapp_group_link_spam import WhatsappGroupLinkSpamHandler
 from handler.kb_qa import KBQAHandler
+from handler.trip_album import TripAlbumHandler, TripPhotoHandler
 from models import (
     WhatsAppWebhookPayload,
 )
@@ -36,19 +37,41 @@ class MessageHandler(BaseHandler):
             session, whatsapp, embedding_client, settings
         )
         self.kb_qa_handler = KBQAHandler(session, whatsapp, embedding_client, settings)
+        self.trip_album_handler = TripAlbumHandler(
+            session, whatsapp, embedding_client, settings
+        )
+        self.trip_photo_handler = TripPhotoHandler(
+            session, whatsapp, embedding_client, settings
+        )
         self.settings = settings
         super().__init__(session, whatsapp, embedding_client)
 
     async def __call__(self, payload: WhatsAppWebhookPayload):
         message = await self.store_message(payload)
 
-        # ignore messages that don't exist or don't have text
-        if not message or not message.text:
+        if not message:
             return
 
         # Ignore messages sent by the bot itself
         my_jid = await self.whatsapp.get_my_jid()
         if message.sender_jid == my_jid.normalize_str():
+            return
+
+        # Debug: Log media info
+        if payload.image or payload.video:
+            logger.info(
+                f"Media message received: image={payload.image}, video={payload.video}, "
+                f"media_url={message.media_url}, group_jid={message.group_jid}"
+            )
+
+        # Handle photo uploads to trip albums (even without text)
+        if message.media_url and message.group_jid:
+            logger.info(f"Processing photo upload for group {message.group_jid}")
+            # Run photo upload in background to not block other processing
+            asyncio.create_task(self._handle_trip_photo(message))
+
+        # For text-based commands, we need text
+        if not message.text:
             return
 
         if message.sender_jid.endswith("@lid"):
@@ -101,6 +124,11 @@ class MessageHandler(BaseHandler):
                 return  # Silent failure
 
             await self.kb_qa_handler(message)
+            return
+
+        # Check for /setup_trip_album command
+        if message.group and message.text.strip().lower() == "/setup_trip_album":
+            await self.trip_album_handler.handle_setup_command(message)
             return
 
         # ignore messages from unmanaged groups
@@ -157,3 +185,10 @@ class MessageHandler(BaseHandler):
             message.chat_jid,
             f"You are currently {status}.",
         )
+
+    async def _handle_trip_photo(self, message: Message) -> None:
+        """Handle uploading a photo to the trip album in the background."""
+        try:
+            await self.trip_photo_handler(message)
+        except Exception as e:
+            logger.error(f"Failed to upload trip photo: {e}")

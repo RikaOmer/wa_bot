@@ -27,14 +27,14 @@ class Settings(BaseSettings):
     whatsapp_basic_auth_password: Optional[str] = None
     whatsapp_basic_auth_user: Optional[str] = None
 
-    anthropic_api_key: str
+    openai_api_key: str
 
     # Voyage settings
     voyage_api_key: str
     voyage_max_retries: int = 5
 
     # Model settings
-    model_name: str = "anthropic:claude-sonnet-4-5-20250929"
+    model_name: str = "openai:gpt-4o"
 
     # Direct Message settings
     dm_autoreply_enabled: bool = False
@@ -47,6 +47,11 @@ class Settings(BaseSettings):
 
     # QA test groups (group JIDs where /kb_qa command is allowed)
     qa_test_groups: list[str] = []
+
+    # Google Photos OAuth settings (for trip album feature)
+    google_client_id: Optional[str] = None
+    google_client_secret: Optional[str] = None
+    google_redirect_uri: Optional[str] = None
 
     # Optional settings
     debug: bool = False
@@ -104,13 +109,21 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def apply_env(self) -> Self:
-        if self.anthropic_api_key:
-            environ["ANTHROPIC_API_KEY"] = self.anthropic_api_key
+        if self.openai_api_key:
+            environ["OPENAI_API_KEY"] = self.openai_api_key
 
         if self.logfire_token:
             environ["LOGFIRE_TOKEN"] = self.logfire_token
 
         return self
+
+    def is_google_photos_configured(self) -> bool:
+        """Check if Google Photos OAuth is properly configured."""
+        return bool(
+            self.google_client_id
+            and self.google_client_secret
+            and self.google_redirect_uri
+        )
 
 
 @lru_cache
