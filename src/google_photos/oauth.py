@@ -12,10 +12,10 @@ from .models import TokenResponse
 logger = logging.getLogger(__name__)
 
 # Google Photos Library API scopes
+# Note: photoslibrary.sharing was removed - Google deprecated the albums.share API
 SCOPES = [
     "https://www.googleapis.com/auth/photoslibrary",
     "https://www.googleapis.com/auth/photoslibrary.appendonly",
-    "https://www.googleapis.com/auth/photoslibrary.sharing",
 ]
 
 
