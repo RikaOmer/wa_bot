@@ -33,14 +33,6 @@ Track shared expenses directly in the chat:
 ### 📸 Trip Photo Album
 Automatically upload all photos shared in the group to a shared Google Photos album. Set it up once, and every image gets backed up.
 
-### 🛡️ Spam Detection
-When someone shares a suspicious WhatsApp group link, the bot alerts the group admin with a spam confidence score.
-
-### 🔕 Opt-Out Privacy
-Users can DM the bot to opt-out of being @mentioned in summaries:
-- `opt-out` → Your name appears as text, not a mention
-- `opt-in` → Re-enable mentions
-- `status` → Check your current preference
 
 ---
 
