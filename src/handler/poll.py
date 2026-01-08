@@ -18,6 +18,7 @@ from models.poll import Poll
 from models.upsert import upsert
 from whatsapp import WhatsAppClient
 from whatsapp.jid import normalize_jid, parse_jid
+from whatsapp.models import SendPollRequest
 from .base_handler import BaseHandler
 
 logger = logging.getLogger(__name__)
@@ -156,19 +157,30 @@ Examples:
         self.session.add(poll)
         await self.session.commit()
 
-        # Format response
-        options_text = "\n".join(
-            f"{i+1}. {opt}" for i, opt in enumerate(parsed.options)
-        )
-
-        await self.send_message(
-            message.chat_jid,
-            f"🗳️ **הצבעה חדשה!**\n\n"
-            f"❓ {parsed.question}\n\n"
-            f"{options_text}\n\n"
-            f"להצביע - תגידו את מספר האופציה (1, 2, וכו')\n"
-            f"ההצבעה תיסגר אוטומטית אחרי 24 שעות.",
-        )
+        # Send native WhatsApp poll
+        try:
+            await self.whatsapp.send_poll(
+                SendPollRequest(
+                    phone=message.chat_jid,
+                    question=parsed.question,
+                    options=parsed.options,
+                    max_answer=1,  # Single choice poll
+                )
+            )
+            logger.info(f"Created native WhatsApp poll: {parsed.question}")
+        except Exception as e:
+            # Fallback to text message if native poll fails
+            logger.warning(f"Native poll failed, falling back to text: {e}")
+            options_text = "\n".join(
+                f"{i+1}. {opt}" for i, opt in enumerate(parsed.options)
+            )
+            await self.send_message(
+                message.chat_jid,
+                f"🗳️ **הצבעה חדשה!**\n\n"
+                f"❓ {parsed.question}\n\n"
+                f"{options_text}\n\n"
+                f"להצביע - תגידו את מספר האופציה (1, 2, וכו')",
+            )
 
     async def _handle_vote(
         self, message: Message, parsed: ParsedPollRequest
