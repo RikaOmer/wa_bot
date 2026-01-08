@@ -1,6 +1,7 @@
 """Handler for welcome messages when bot joins a new group."""
 
 import logging
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -8,7 +9,7 @@ from voyageai.client_async import AsyncClient
 
 from config import Settings
 from models import Group, Message
-from utils.country_detector import detect_country, detect_country_from_message, CountryInfo
+from utils.trip_info_extractor import extract_trip_info, TripInfo
 from whatsapp import WhatsAppClient
 from .base_handler import BaseHandler
 
@@ -31,94 +32,143 @@ class WelcomeHandler(BaseHandler):
     async def send_welcome_if_new(self, message: Message) -> bool:
         """
         Send a welcome message if this is a new group that hasn't been welcomed yet.
-        
+
         Args:
             message: The incoming message that triggered this check
-            
+
         Returns:
             True if a welcome was sent, False otherwise
         """
         if not message.group:
             return False
-        
+
         group = message.group
-        
+
         # Check if already welcomed
         if group.welcomed:
             return False
-        
+
         logger.info(f"New group detected: {group.group_jid}, sending welcome message")
-        
-        # Try to detect country from group name
-        country_info = None
+
+        # Extract trip info from group name using OpenAI
+        trip_info: Optional[TripInfo] = None
         if group.group_name:
-            country_info = detect_country(group.group_name)
-        
+            try:
+                trip_info = await extract_trip_info(
+                    group.group_name, model_name=self.settings.model_name
+                )
+            except Exception as e:
+                logger.warning(f"Failed to extract trip info: {e}")
+                trip_info = TripInfo()
+
         # Send appropriate welcome message
-        if country_info:
-            await self._send_welcome_with_country(message.chat_jid, group, country_info)
+        if trip_info and trip_info.destination:
+            await self._send_welcome_with_trip_info(message.chat_jid, group, trip_info)
         else:
             await self._send_welcome_without_country(message.chat_jid, group)
-        
-        # Mark group as welcomed
+
+        # Update group with extracted info
         group.welcomed = True
-        if country_info:
-            group.destination_country = country_info.name_hebrew
-        
+        if trip_info:
+            if trip_info.destination:
+                group.destination_country = trip_info.destination
+            if trip_info.start_date:
+                group.trip_start_date = datetime.combine(
+                    trip_info.start_date, datetime.min.time(), tzinfo=timezone.utc
+                )
+            if trip_info.end_date:
+                group.trip_end_date = datetime.combine(
+                    trip_info.end_date, datetime.min.time(), tzinfo=timezone.utc
+                )
+            if trip_info.context:
+                group.trip_context = trip_info.context
+
         await self.session.commit()
-        
+
         return True
 
     async def handle_set_destination(self, message: Message) -> bool:
         """
         Handle a message that sets the trip destination.
-        
+
         Looks for messages like "אנחנו טסים לתאילנד" or "we're going to Japan"
-        
+
         Args:
             message: The message that might contain destination info
-            
+
         Returns:
             True if destination was set, False otherwise
         """
         if not message.group or not message.text:
             return False
-        
+
         # Check if group already has a destination
         if message.group.destination_country:
             return False
-        
-        # Try to detect country from message
-        country_info = detect_country_from_message(message.text)
-        
-        if not country_info:
+
+        # Try to extract trip info from message
+        try:
+            trip_info = await extract_trip_info(
+                message.text, model_name=self.settings.model_name
+            )
+        except Exception as e:
+            logger.warning(f"Failed to extract trip info from message: {e}")
             return False
-        
-        logger.info(f"Destination detected from message: {country_info.name_hebrew}")
-        
+
+        if not trip_info or not trip_info.destination:
+            return False
+
+        logger.info(f"Destination detected from message: {trip_info.destination}")
+
         # Update group with destination
-        message.group.destination_country = country_info.name_hebrew
+        message.group.destination_country = trip_info.destination
+        if trip_info.start_date:
+            message.group.trip_start_date = datetime.combine(
+                trip_info.start_date, datetime.min.time(), tzinfo=timezone.utc
+            )
+        if trip_info.end_date:
+            message.group.trip_end_date = datetime.combine(
+                trip_info.end_date, datetime.min.time(), tzinfo=timezone.utc
+            )
+        if trip_info.context:
+            message.group.trip_context = trip_info.context
+
         await self.session.commit()
-        
+
         # Send confirmation message
+        emoji = trip_info.destination_emoji or "✈️"
         await self.send_message(
             message.chat_jid,
-            f"מעולה! {country_info.emoji} עדכנתי את היעד ל{country_info.name_hebrew}.\n"
-            f"אשמח לעזור עם כל שאלה על הטיול! 🙌"
+            f"מעולה! {emoji} עדכנתי את היעד ל{trip_info.destination}.\n"
+            f"אשמח לעזור עם כל שאלה על הטיול! 🙌",
         )
-        
+
         return True
 
-    async def _send_welcome_with_country(
-        self, 
-        chat_jid: str, 
-        group: Group, 
-        country_info: CountryInfo
+    async def _send_welcome_with_trip_info(
+        self, chat_jid: str, group: Group, trip_info: TripInfo
     ) -> None:
-        """Send a welcome message when country is detected from group name."""
+        """Send a welcome message when trip info is extracted from group name."""
+        emoji = trip_info.destination_emoji or "✈️"
+
+        # Build context line if we have extra info
+        context_parts = []
+        if trip_info.context:
+            context_parts.append(trip_info.context)
+        if trip_info.start_date and trip_info.end_date:
+            context_parts.append(
+                f"{trip_info.start_date.strftime('%d.%m')}-{trip_info.end_date.strftime('%d.%m')}"
+            )
+        elif trip_info.start_date:
+            context_parts.append(f"מתאריך {trip_info.start_date.strftime('%d.%m')}")
+
+        context_line = ""
+        if context_parts:
+            context_line = f"\n{' • '.join(context_parts)}\n"
+
         welcome_message = (
-            f"היי כולם! 👋 אני בוטיול, אני רואה שאנחנו טסים ל{country_info.name_hebrew}! "
-            f"{country_info.emoji} איזה כיף!\n\n"
+            f"היי כולם! 👋 אני בוטיול, אני רואה שאנחנו טסים ל{trip_info.destination}! "
+            f"{emoji} איזה כיף!{context_line}\n"
             f"🎯 *מה אני יכול לעשות?*\n\n"
             f"📝 *סיכום ושאלות*\n"
             f"• \"מה פספסתי?\" - סיכום השיחה של היום\n"
@@ -139,13 +189,11 @@ class WelcomeHandler(BaseHandler):
             f"💡 תייגו אותי עם @ ואני אעזור!\n"
             f"לרשימת כל הפיצ'רים: \"מה אתה יודע לעשות?\""
         )
-        
+
         await self.send_message(chat_jid, welcome_message)
 
     async def _send_welcome_without_country(
-        self, 
-        chat_jid: str, 
-        group: Group
+        self, chat_jid: str, group: Group
     ) -> None:
         """Send a welcome message when country is not detected."""
         welcome_message = (
@@ -172,6 +220,5 @@ class WelcomeHandler(BaseHandler):
             f"💡 תייגו אותי עם @ ואני אעזור!\n"
             f"לרשימת כל הפיצ'רים: \"מה אתה יודע לעשות?\""
         )
-        
-        await self.send_message(chat_jid, welcome_message)
 
+        await self.send_message(chat_jid, welcome_message)

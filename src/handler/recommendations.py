@@ -2,9 +2,9 @@
 
 import json
 import logging
-from typing import List, Optional
+from typing import List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from pydantic_ai import Agent
 from sqlmodel import select, col
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -137,6 +137,8 @@ class RecommendationHandler(BaseHandler):
         Returns:
             List of LocationContext objects
         """
+        if message.text is None:
+            return []
         # Get query embedding
         query_embedding = (
             await voyage_embed_text(self.embedding_client, [message.text])

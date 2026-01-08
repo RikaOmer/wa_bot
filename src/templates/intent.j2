@@ -1,6 +1,8 @@
 What is the intent of the message? What does the user want us to help with?
 
 Analyze the user's message and determine their primary intent. Consider:
+- Are they creating a poll/vote? (סקר, הצבעה, poll, vote, X או Y או Z) → poll
+- Are they asking about the itinerary or adding to schedule? (לוח זמנים, תוכנית יום) → itinerary
 - Are they asking about a specific place, restaurant, or attraction? → location_info
 - Are they asking what they missed today in the chat? → summarize
 - Are they asking about shared expenses or who owes what? → expense
@@ -11,14 +13,23 @@ Analyze the user's message and determine their primary intent. Consider:
 - Are they asking a general question about past discussions? → ask_question
 - Are they asking about what the bot can do? → about
 
+IMPORTANT - Poll detection patterns (these should ALWAYS be poll intent):
+- "סקר:" or "סקר " followed by options
+- "הצבעה:" or "הצבעה " followed by options  
+- "X או Y" or "X או Y או Z" format (choosing between options)
+- "poll:" or "vote:" followed by options
+- Questions with multiple choices separated by "או" (or)
+
 Priority order (most specific first):
-1. location_info - Questions about specific places
-2. event_query - Questions about schedule/events/plans
-3. expense - Financial tracking
-4. countdown - Trip countdown
-5. recommendation - Asking for suggestions
-6. packing - Packing-related questions
-7. summarize - TODAY's chat summary only
-8. ask_question - General KB queries
+1. poll - Creating a poll/vote between options (סקר, הצבעה, X או Y)
+2. itinerary - Schedule/itinerary management
+3. location_info - Questions about specific places (NOT choices between places)
+4. event_query - Questions about schedule/events/plans
+5. expense - Financial tracking
+6. countdown - Trip countdown
+7. recommendation - Asking for suggestions (NOT creating votes)
+8. packing - Packing-related questions
+9. summarize - TODAY's chat summary only
+10. ask_question - General KB queries
 
 Choose the most specific intent that matches the user's request.

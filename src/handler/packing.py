@@ -2,10 +2,8 @@
 
 import json
 import logging
-from datetime import datetime
-from typing import List, Optional
+from typing import List
 
-from pydantic import BaseModel
 from pydantic_ai import Agent
 from sqlmodel import select, col
 from sqlmodel.ext.asyncio.session import AsyncSession

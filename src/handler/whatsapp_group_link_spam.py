@@ -1,9 +1,9 @@
-# This handler is used to handle whatsapp group link spam
+"""Handler for detecting WhatsApp group link spam."""
 
 import logging
-from .base_handler import BaseHandler
-from pydantic_ai import Agent
+
 from pydantic import BaseModel
+from pydantic_ai import Agent
 from sqlmodel import Field, select, desc
 from sqlmodel.ext.asyncio.session import AsyncSession
 from voyageai.client_async import AsyncClient
@@ -13,8 +13,8 @@ from models import Message
 from whatsapp import WhatsAppClient
 from whatsapp.jid import parse_jid
 from services.prompt_manager import prompt_manager
+from .base_handler import BaseHandler
 
-# Creating an object
 logger = logging.getLogger(__name__)
 
 

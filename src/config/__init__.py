@@ -42,6 +42,9 @@ class Settings(BaseSettings):
         "Hello, I am not designed to answer to personal messages."
     )
 
+    # Admin user who can approve/reject groups via DM
+    admin_user: Optional[str] = None
+
     # QA tester settings (user JIDs allowed to use /kb_qa command)
     qa_testers: list[str] = []
 
@@ -97,6 +100,27 @@ class Settings(BaseSettings):
                 raise ValueError(
                     f"Invalid group JID '{jid_str}'. Missing group ID part."
                 )
+        return v
+
+    @field_validator("admin_user")
+    @classmethod
+    def validate_admin_user(cls, v: str | None) -> str | None:
+        """Validate that admin_user is a valid user JID."""
+        if v is None:
+            return None
+        valid_user_servers = (DefaultUserServer, LegacyUserServer)
+        try:
+            jid = parse_jid(v)
+        except JIDParseError as e:
+            raise ValueError(f"Invalid JID '{v}': {e}") from e
+
+        if jid.server not in valid_user_servers:
+            raise ValueError(
+                f"Invalid user JID '{v}'. Expected server to be one of "
+                f"{valid_user_servers}, got '{jid.server}'"
+            )
+        if not jid.user:
+            raise ValueError(f"Invalid user JID '{v}'. Missing user part.")
         return v
 
     model_config = SettingsConfigDict(

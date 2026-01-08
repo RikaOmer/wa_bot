@@ -2,22 +2,21 @@
 
 import json
 import logging
-import re
 from datetime import datetime, timezone
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent
-from sqlmodel import select, col
+from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from voyageai.client_async import AsyncClient
 
 from config import Settings
-from models import Message, Sender
+from models import Message
 from models.poll import Poll
-from models.upsert import upsert
 from whatsapp import WhatsAppClient
-from whatsapp.jid import normalize_jid, parse_jid
+from whatsapp.jid import normalize_jid
+from whatsapp.models import SendPollRequest
 from .base_handler import BaseHandler
 
 logger = logging.getLogger(__name__)
@@ -143,7 +142,7 @@ Examples:
             return
 
         # Ensure sender exists
-        await self._ensure_sender_exists(message.sender_jid, message.sender.push_name if message.sender else None)
+        await self.ensure_sender_exists(message.sender_jid, message.sender.push_name if message.sender else None)
 
         # Create poll
         poll = Poll(
@@ -156,19 +155,30 @@ Examples:
         self.session.add(poll)
         await self.session.commit()
 
-        # Format response
-        options_text = "\n".join(
-            f"{i+1}. {opt}" for i, opt in enumerate(parsed.options)
-        )
-
-        await self.send_message(
-            message.chat_jid,
-            f"🗳️ **הצבעה חדשה!**\n\n"
-            f"❓ {parsed.question}\n\n"
-            f"{options_text}\n\n"
-            f"להצביע - תגידו את מספר האופציה (1, 2, וכו')\n"
-            f"ההצבעה תיסגר אוטומטית אחרי 24 שעות.",
-        )
+        # Send native WhatsApp poll
+        try:
+            await self.whatsapp.send_poll(
+                SendPollRequest(
+                    phone=message.chat_jid,
+                    question=parsed.question,
+                    options=parsed.options,
+                    max_answer=1,  # Single choice poll
+                )
+            )
+            logger.info(f"Created native WhatsApp poll: {parsed.question}")
+        except Exception as e:
+            # Fallback to text message if native poll fails
+            logger.warning(f"Native poll failed, falling back to text: {e}")
+            options_text = "\n".join(
+                f"{i+1}. {opt}" for i, opt in enumerate(parsed.options)
+            )
+            await self.send_message(
+                message.chat_jid,
+                f"🗳️ **הצבעה חדשה!**\n\n"
+                f"❓ {parsed.question}\n\n"
+                f"{options_text}\n\n"
+                f"להצביע - תגידו את מספר האופציה (1, 2, וכו')",
+            )
 
     async def _handle_vote(
         self, message: Message, parsed: ParsedPollRequest
@@ -218,7 +228,7 @@ Examples:
         await self.session.commit()
 
         # Get voter display name
-        voter_name = await self._get_display_name(voter_jid)
+        voter_name = await self.get_display_name(voter_jid)
         chosen_option = options[parsed.vote_option - 1]
 
         await self.send_message(
@@ -331,22 +341,4 @@ Examples:
         result = await self.session.exec(q)
         return result.first()
 
-    async def _ensure_sender_exists(
-        self, jid: str, push_name: Optional[str]
-    ) -> None:
-        """Ensure a sender record exists in the database."""
-        sender = await self.session.get(Sender, jid)
-        if sender is None:
-            sender = Sender(jid=jid, push_name=push_name)
-            await upsert(self.session, sender)
-            await self.session.flush()
-
-    async def _get_display_name(self, jid: str) -> str:
-        """Get display name for a JID."""
-        sender = await self.session.get(Sender, jid)
-        if sender and sender.push_name:
-            return sender.push_name
-
-        parsed = parse_jid(jid)
-        return f"@{parsed.user}"
 

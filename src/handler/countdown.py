@@ -1,7 +1,6 @@
 """Handler for trip countdown feature."""
 
 import logging
-import re
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -13,7 +12,6 @@ from voyageai.client_async import AsyncClient
 from config import Settings
 from models import Message
 from whatsapp import WhatsAppClient
-from services.prompt_manager import prompt_manager
 from .base_handler import BaseHandler
 
 logger = logging.getLogger(__name__)

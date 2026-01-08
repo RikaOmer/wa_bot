@@ -1,3 +1,5 @@
+"""Main message handler that orchestrates all sub-handlers."""
+
 import asyncio
 import logging
 
@@ -6,17 +8,15 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from voyageai.client_async import AsyncClient
 
 from config import Settings
-from handler.router import Router
-from handler.whatsapp_group_link_spam import WhatsappGroupLinkSpamHandler
-from handler.kb_qa import KBQAHandler
-from handler.trip_album import TripAlbumHandler, TripPhotoHandler
-from handler.welcome import WelcomeHandler
-from models import (
-    WhatsAppWebhookPayload,
-)
+from models import Message, OptOut, WhatsAppWebhookPayload
 from whatsapp import WhatsAppClient
 from .base_handler import BaseHandler
-from models import Message, OptOut
+from .router import Router
+from .whatsapp_group_link_spam import WhatsappGroupLinkSpamHandler
+from .kb_qa import KBQAHandler
+from .trip_album import TripAlbumHandler, TripPhotoHandler
+from .welcome import WelcomeHandler
+from .admin_approval import AdminApprovalHandler
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +47,9 @@ class MessageHandler(BaseHandler):
         self.welcome_handler = WelcomeHandler(
             session, whatsapp, embedding_client, settings
         )
+        self.admin_approval_handler = AdminApprovalHandler(
+            session, whatsapp, embedding_client, settings
+        )
         self.settings = settings
         super().__init__(session, whatsapp, embedding_client)
 
@@ -60,6 +63,14 @@ class MessageHandler(BaseHandler):
         my_jid = await self.whatsapp.get_my_jid()
         if message.sender_jid == my_jid.normalize_str():
             return
+
+        # Notify admin if bot was added to a new group
+        if getattr(message, "_is_new_group", False) and message.group:
+            await self.admin_approval_handler.notify_admin_new_group(
+                group=message.group,
+                added_by_jid=message.sender_jid,
+                added_by_name=payload.pushname,
+            )
 
         # Debug: Log media info
         if payload.image or payload.video:
@@ -85,6 +96,10 @@ class MessageHandler(BaseHandler):
 
         # direct message
         if message and not message.group:
+            # Check if this is admin approval reply first
+            if await self.admin_approval_handler.handle_admin_reply(message):
+                return
+
             command = message.text.strip().lower()
             if command == "opt-out":
                 await self.handle_opt_out(message)

@@ -1,7 +1,9 @@
+"""Intent-based message router that directs messages to appropriate handlers."""
+
 import logging
-from typing import Sequence
 from datetime import datetime, timedelta
 from enum import Enum
+from typing import Sequence
 
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent
@@ -9,24 +11,24 @@ from sqlmodel import desc, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from voyageai.client_async import AsyncClient
 
-from handler.knowledge_base_answers import KnowledgeBaseAnswers
-from handler.expense import ExpenseHandler
-from handler.countdown import CountdownHandler
-from handler.location import LocationHandler
-from handler.events import EventHandler
-from handler.recommendations import RecommendationHandler
-from handler.packing import PackingHandler
+from config import Settings
 from models import Message
+from whatsapp import WhatsAppClient
 from whatsapp.jid import parse_jid
 from utils.chat_text import chat2text
 from utils.opt_out import get_opt_out_map
-from whatsapp import WhatsAppClient
-from config import Settings
-from .base_handler import BaseHandler
 from services.prompt_manager import prompt_manager
+from .base_handler import BaseHandler
+from .knowledge_base_answers import KnowledgeBaseAnswers
+from .expense import ExpenseHandler
+from .countdown import CountdownHandler
+from .location import LocationHandler
+from .events import EventHandler
+from .recommendations import RecommendationHandler
+from .packing import PackingHandler
+from .poll import PollHandler
+from .itinerary import ItineraryHandler
 
-
-# Creating an object
 logger = logging.getLogger(__name__)
 
 
@@ -39,6 +41,8 @@ class IntentEnum(str, Enum):
     event_query = "event_query"
     recommendation = "recommendation"
     packing = "packing"
+    poll = "poll"
+    itinerary = "itinerary"
     about = "about"
     other = "other"
 
@@ -89,6 +93,12 @@ class Router(BaseHandler):
         self.packing_handler = PackingHandler(
             session, whatsapp, embedding_client, settings
         )
+        self.poll_handler = PollHandler(
+            session, whatsapp, embedding_client, settings
+        )
+        self.itinerary_handler = ItineraryHandler(
+            session, whatsapp, embedding_client, settings
+        )
         super().__init__(session, whatsapp, embedding_client)
 
     async def __call__(self, message: Message):
@@ -121,6 +131,12 @@ class Router(BaseHandler):
             case IntentEnum.packing:
                 logger.info("Routing to PackingHandler")
                 await self.packing_handler(message)
+            case IntentEnum.poll:
+                logger.info("Routing to PollHandler")
+                await self.poll_handler(message)
+            case IntentEnum.itinerary:
+                logger.info("Routing to ItineraryHandler")
+                await self.itinerary_handler(message)
             case IntentEnum.about:
                 await self.about(message)
             case IntentEnum.other:
