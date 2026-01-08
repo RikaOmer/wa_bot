@@ -13,11 +13,10 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from voyageai.client_async import AsyncClient
 
 from config import Settings
-from models import Message, Sender, Expense, ExpenseParticipant
-from models.upsert import upsert
+from models import Message, Expense, ExpenseParticipant
 from services.prompt_manager import prompt_manager
 from whatsapp import WhatsAppClient
-from whatsapp.jid import normalize_jid, parse_jid
+from whatsapp.jid import normalize_jid
 from .base_handler import BaseHandler
 
 logger = logging.getLogger(__name__)
@@ -234,10 +233,10 @@ class ExpenseHandler(BaseHandler):
         remainder = parsed.amount_agorot % num_participants
 
         # Ensure senders exist in database
-        await self._ensure_sender_exists(payer_jid, message.sender.push_name if message.sender else None)
+        await self.ensure_sender_exists(payer_jid, message.sender.push_name if message.sender else None)
 
         for jid in participant_jids:
-            await self._ensure_sender_exists(jid, None)
+            await self.ensure_sender_exists(jid, None)
 
         # Create the expense
         expense = Expense(
@@ -317,8 +316,8 @@ class ExpenseHandler(BaseHandler):
         lines = ["📊 מאזן הוצאות:", ""]
 
         for settlement in settlements:
-            from_name = await self._get_display_name(settlement.from_jid)
-            to_name = await self._get_display_name(settlement.to_jid)
+            from_name = await self.get_display_name(settlement.from_jid)
+            to_name = await self.get_display_name(settlement.to_jid)
             amount = settlement.amount_agorot / 100
             amount_str = f"{amount:.2f}₪" if amount != int(amount) else f"{int(amount)}₪"
             lines.append(f"{from_name} חייב/ת ל{to_name}: {amount_str}")
@@ -480,26 +479,4 @@ class ExpenseHandler(BaseHandler):
         
         return participant_jids
 
-    async def _ensure_sender_exists(
-        self, jid: str, push_name: Optional[str]
-    ) -> None:
-        """Ensure a sender record exists in the database."""
-        sender = await self.session.get(Sender, jid)
-        if sender is None:
-            sender = Sender(jid=jid, push_name=push_name)
-            await upsert(self.session, sender)
-            await self.session.flush()
-
-    async def _get_display_name(self, jid: str) -> str:
-        """
-        Get display name for a JID.
-        Returns push_name if available, otherwise phone number with @.
-        """
-        sender = await self.session.get(Sender, jid)
-        if sender and sender.push_name:
-            return sender.push_name
-
-        # Extract phone number from JID
-        parsed = parse_jid(jid)
-        return f"@{parsed.user}"
 

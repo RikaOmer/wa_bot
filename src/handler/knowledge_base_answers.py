@@ -1,3 +1,5 @@
+"""Handler for RAG-based knowledge base answers."""
+
 import logging
 from typing import List
 
@@ -13,18 +15,16 @@ from tenacity import (
 )
 from voyageai.client_async import AsyncClient
 
+from config import Settings
 from models import Message
 from whatsapp import WhatsAppClient
 from whatsapp.jid import parse_jid
 from utils.chat_text import chat2text
 from utils.opt_out import get_opt_out_map
 from utils.voyage_embed_text import voyage_embed_text
-from .base_handler import BaseHandler
-from config import Settings
 from services.prompt_manager import prompt_manager
+from .base_handler import BaseHandler
 
-
-# Creating an object
 logger = logging.getLogger(__name__)
 
 

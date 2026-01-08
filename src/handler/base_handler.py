@@ -15,7 +15,7 @@ from models import (
     upsert,
 )
 from whatsapp import WhatsAppClient, SendMessageRequest
-from whatsapp.jid import normalize_jid
+from whatsapp.jid import normalize_jid, parse_jid
 
 logger = logging.getLogger(__name__)
 
@@ -75,16 +75,31 @@ class BaseHandler:
                     self.session.flush()
                 )  # Ensure sender is visible in this transaction
 
+            is_new_group = False
             if message.group_jid:
                 group = await self.session.get(Group, message.group_jid)
                 if group is None:
-                    group = Group(**BaseGroup(group_jid=message.group_jid).model_dump())
+                    is_new_group = True
+                    group = Group(
+                        **BaseGroup(
+                            group_jid=message.group_jid,
+                            pending_approval=True,
+                            added_by_jid=message.sender_jid,
+                        ).model_dump()
+                    )
                     await self.upsert(group)
                     await self.session.flush()
+                    logger.info(
+                        f"New group detected: {message.group_jid}, added by {message.sender_jid}"
+                    )
+                message.group = group
 
             # Finally add the message
             stored_message = await self.upsert(message)
-            return stored_message if isinstance(stored_message, Message) else message
+            result = stored_message if isinstance(stored_message, Message) else message
+            # Mark if this was a new group for admin notification
+            result._is_new_group = is_new_group  # type: ignore[attr-defined]
+            return result
 
     async def store_reaction(self, payload: WhatsAppWebhookPayload) -> Reaction | None:
         """
@@ -169,3 +184,24 @@ class BaseHandler:
 
     async def upsert(self, model):
         return await upsert(self.session, model)
+
+    async def ensure_sender_exists(
+        self, jid: str, push_name: str | None = None
+    ) -> None:
+        """Ensure a sender record exists in the database."""
+        sender = await self.session.get(Sender, jid)
+        if sender is None:
+            sender = Sender(jid=jid, push_name=push_name)
+            await self.upsert(sender)
+            await self.session.flush()
+
+    async def get_display_name(self, jid: str) -> str:
+        """
+        Get display name for a JID.
+        Returns push_name if available, otherwise phone number with @.
+        """
+        sender = await self.session.get(Sender, jid)
+        if sender and sender.push_name:
+            return sender.push_name
+        parsed = parse_jid(jid)
+        return f"@{parsed.user}"

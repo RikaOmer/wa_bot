@@ -12,7 +12,6 @@ from voyageai.client_async import AsyncClient
 from config import Settings
 from google_photos import GoogleOAuth, GooglePhotosClient
 from models import Message, TripAlbum
-from models.upsert import upsert
 from whatsapp import WhatsAppClient
 from .base_handler import BaseHandler
 

@@ -12,10 +12,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from voyageai.client_async import AsyncClient
 
 from config import Settings
-from models import Message, Group, KBTopic, Sender
+from models import Message, Group, KBTopic
 from models.itinerary import ItineraryItem
-from models.upsert import upsert
-from services.prompt_manager import prompt_manager
 from whatsapp import WhatsAppClient
 from whatsapp.jid import normalize_jid
 from .base_handler import BaseHandler
@@ -197,7 +195,7 @@ Today's date context will be provided by the system.""",
             item_date = date.today()
 
         # Ensure sender exists
-        await self._ensure_sender_exists(message.sender_jid, message.sender.push_name if message.sender else None)
+        await self.ensure_sender_exists(message.sender_jid, message.sender.push_name if message.sender else None)
 
         # Create item
         item = ItineraryItem(
@@ -232,7 +230,7 @@ Today's date context will be provided by the system.""",
             return
 
         # Ensure sender exists
-        await self._ensure_sender_exists(message.sender_jid, message.sender.push_name if message.sender else None)
+        await self.ensure_sender_exists(message.sender_jid, message.sender.push_name if message.sender else None)
 
         # Create items from events
         created = 0
@@ -317,13 +315,4 @@ Today's date context will be provided by the system.""",
             return "evening"
         return "afternoon"
 
-    async def _ensure_sender_exists(
-        self, jid: str, push_name: Optional[str]
-    ) -> None:
-        """Ensure a sender record exists in the database."""
-        sender = await self.session.get(Sender, jid)
-        if sender is None:
-            sender = Sender(jid=jid, push_name=push_name)
-            await upsert(self.session, sender)
-            await self.session.flush()
 
