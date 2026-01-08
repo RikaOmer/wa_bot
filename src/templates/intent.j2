@@ -1,1 +1,24 @@
 What is the intent of the message? What does the user want us to help with?
+
+Analyze the user's message and determine their primary intent. Consider:
+- Are they asking about a specific place, restaurant, or attraction? → location_info
+- Are they asking what they missed today in the chat? → summarize
+- Are they asking about shared expenses or who owes what? → expense
+- Are they asking about trip dates or how long until the trip? → countdown
+- Are they asking about planned events, schedule, or timeline? → event_query
+- Are they asking for recommendations or suggestions? → recommendation
+- Are they asking about what to pack or creating a packing list? → packing
+- Are they asking a general question about past discussions? → ask_question
+- Are they asking about what the bot can do? → about
+
+Priority order (most specific first):
+1. location_info - Questions about specific places
+2. event_query - Questions about schedule/events/plans
+3. expense - Financial tracking
+4. countdown - Trip countdown
+5. recommendation - Asking for suggestions
+6. packing - Packing-related questions
+7. summarize - TODAY's chat summary only
+8. ask_question - General KB queries
+
+Choose the most specific intent that matches the user's request.

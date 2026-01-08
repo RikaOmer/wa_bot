@@ -4,4 +4,42 @@ Attached is a snapshot from a group chat conversation. The conversation is a mix
 - Don't miss any topic! Every subject discussed should be highlighted in the summary, even if it's a small one. You MUST include ALL topics.
 - You MUST respond in English.
 
-The goal is learn the different subject discussed in the group chat. This will be used as a knowledge base for the group, so it should not loose any important information or insights.
+For each topic, extract the following information:
+
+## LOCATIONS
+- Look for: restaurants, cafes, bars, hotels, hostels, attractions, landmarks, beaches, parks, museums, neighborhoods, cities
+- For each location, capture:
+  - name: The place name (e.g., "Cafe Yafa", "Central Park", "Hotel Marina")
+  - type: Category (restaurant, cafe, hotel, attraction, landmark, beach, neighborhood, city, etc.)
+  - context: Why it was mentioned (recommended, warned_against, visited, planned, asked_about)
+- Only extract real, specific places - not generic references like "a restaurant" or "some hotel"
+- If no locations are mentioned in a topic, return an empty list for locations
+
+## EVENTS
+- Look for: flights, hotel check-ins/check-outs, reservations, tours, activities, meetings, deadlines
+- For each event, capture:
+  - title: Brief description (e.g., "Flight to Barcelona", "Dinner reservation at La Casa")
+  - date: Date if mentioned (YYYY-MM-DD format), or null if unclear
+  - time: Time if mentioned (HH:MM format), or null if unclear
+  - type: Category (flight, hotel_checkin, hotel_checkout, activity, tour, reservation, meeting, deadline)
+  - context: Status (confirmed, tentative, suggested, cancelled)
+- If no events are mentioned in a topic, return an empty list for events
+
+## PREFERENCES
+- Look for expressed likes, dislikes, dietary restrictions, budget concerns, activity preferences
+- For each preference, capture:
+  - category: What it relates to (food, activity, accommodation, transport, budget, schedule)
+  - preference: The specific preference (e.g., "vegetarian", "budget-friendly", "adventure activities", "early mornings")
+  - sentiment: How they feel about it (positive, negative, neutral)
+  - mentioned_by: The speaker tag (e.g., "@user_1")
+- If no preferences are mentioned in a topic, return an empty list for preferences
+
+## SENTIMENT
+Analyze the overall sentiment of the topic discussion:
+- overall: The dominant sentiment (positive, negative, neutral, mixed)
+- excitement: Level of excitement/enthusiasm (0.0 to 1.0)
+- concern: Level of worry/concern (0.0 to 1.0)
+- agreement: How much the group agrees on this topic (0.0 to 1.0)
+- key_emotions: List of notable emotions (excited, happy, worried, frustrated, confused, relieved, disappointed, etc.)
+
+The goal is to learn the different subjects discussed in the group chat. This will be used as a knowledge base for the group, so it should not lose any important information or insights.

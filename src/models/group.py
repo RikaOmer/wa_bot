@@ -54,6 +54,8 @@ class BaseGroup(SQLModel):
         default=None,
         sa_column=Column(DateTime(timezone=True), nullable=True),
     )
+    # JSON object storing aggregated group preferences from conversations
+    group_preferences: Optional[str] = Field(default=None)
 
     @field_validator("group_jid", "owner_jid", mode="before")
     @classmethod
