@@ -1,13 +1,16 @@
+"""Handler for cross-group knowledge base queries (/kb_qa command)."""
+
 import logging
+
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from voyageai.client_async import AsyncClient
 
 from config import Settings
-from handler.base_handler import BaseHandler
-from handler.knowledge_base_answers import KnowledgeBaseAnswers
 from models import Message, Group
 from whatsapp import WhatsAppClient
+from .base_handler import BaseHandler
+from .knowledge_base_answers import KnowledgeBaseAnswers
 
 logger = logging.getLogger(__name__)
 

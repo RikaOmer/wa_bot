@@ -1,7 +1,9 @@
+"""Intent-based message router that directs messages to appropriate handlers."""
+
 import logging
-from typing import Sequence
 from datetime import datetime, timedelta
 from enum import Enum
+from typing import Sequence
 
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent
@@ -9,26 +11,24 @@ from sqlmodel import desc, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from voyageai.client_async import AsyncClient
 
-from handler.knowledge_base_answers import KnowledgeBaseAnswers
-from handler.expense import ExpenseHandler
-from handler.countdown import CountdownHandler
-from handler.location import LocationHandler
-from handler.events import EventHandler
-from handler.recommendations import RecommendationHandler
-from handler.packing import PackingHandler
-from handler.poll import PollHandler
-from handler.itinerary import ItineraryHandler
+from config import Settings
 from models import Message
+from whatsapp import WhatsAppClient
 from whatsapp.jid import parse_jid
 from utils.chat_text import chat2text
 from utils.opt_out import get_opt_out_map
-from whatsapp import WhatsAppClient
-from config import Settings
-from .base_handler import BaseHandler
 from services.prompt_manager import prompt_manager
+from .base_handler import BaseHandler
+from .knowledge_base_answers import KnowledgeBaseAnswers
+from .expense import ExpenseHandler
+from .countdown import CountdownHandler
+from .location import LocationHandler
+from .events import EventHandler
+from .recommendations import RecommendationHandler
+from .packing import PackingHandler
+from .poll import PollHandler
+from .itinerary import ItineraryHandler
 
-
-# Creating an object
 logger = logging.getLogger(__name__)
 
 

@@ -31,6 +31,8 @@ class BaseGroup(SQLModel):
         max_length=255, foreign_key="sender.jid", nullable=True, default=None
     )
     managed: bool = Field(default=False)
+    pending_approval: bool = Field(default=False)
+    added_by_jid: Optional[str] = Field(default=None, max_length=255)
     notify_on_spam: bool = Field(default=False)
     community_keys: Optional[List[str]] = Field(
         default=None, sa_column=Column(ARRAY(String))
@@ -54,6 +56,7 @@ class BaseGroup(SQLModel):
         default=None,
         sa_column=Column(DateTime(timezone=True), nullable=True),
     )
+    trip_context: Optional[str] = Field(default=None, max_length=255)
     # JSON object storing aggregated group preferences from conversations
     group_preferences: Optional[str] = Field(default=None)
 
