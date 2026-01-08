@@ -16,6 +16,8 @@ from handler.location import LocationHandler
 from handler.events import EventHandler
 from handler.recommendations import RecommendationHandler
 from handler.packing import PackingHandler
+from handler.poll import PollHandler
+from handler.itinerary import ItineraryHandler
 from models import Message
 from whatsapp.jid import parse_jid
 from utils.chat_text import chat2text
@@ -39,6 +41,8 @@ class IntentEnum(str, Enum):
     event_query = "event_query"
     recommendation = "recommendation"
     packing = "packing"
+    poll = "poll"
+    itinerary = "itinerary"
     about = "about"
     other = "other"
 
@@ -89,6 +93,12 @@ class Router(BaseHandler):
         self.packing_handler = PackingHandler(
             session, whatsapp, embedding_client, settings
         )
+        self.poll_handler = PollHandler(
+            session, whatsapp, embedding_client, settings
+        )
+        self.itinerary_handler = ItineraryHandler(
+            session, whatsapp, embedding_client, settings
+        )
         super().__init__(session, whatsapp, embedding_client)
 
     async def __call__(self, message: Message):
@@ -121,6 +131,12 @@ class Router(BaseHandler):
             case IntentEnum.packing:
                 logger.info("Routing to PackingHandler")
                 await self.packing_handler(message)
+            case IntentEnum.poll:
+                logger.info("Routing to PollHandler")
+                await self.poll_handler(message)
+            case IntentEnum.itinerary:
+                logger.info("Routing to ItineraryHandler")
+                await self.itinerary_handler(message)
             case IntentEnum.about:
                 await self.about(message)
             case IntentEnum.other:
