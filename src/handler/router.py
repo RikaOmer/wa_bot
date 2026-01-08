@@ -11,6 +11,7 @@ from voyageai.client_async import AsyncClient
 
 from handler.knowledge_base_answers import KnowledgeBaseAnswers
 from handler.expense import ExpenseHandler
+from handler.countdown import CountdownHandler
 from models import Message
 from whatsapp.jid import parse_jid
 from utils.chat_text import chat2text
@@ -29,6 +30,7 @@ class IntentEnum(str, Enum):
     summarize = "summarize"
     ask_question = "ask_question"
     expense = "expense"
+    countdown = "countdown"
     about = "about"
     other = "other"
 
@@ -39,6 +41,7 @@ class Intent(BaseModel):
 - summarize: Summarize TODAY's chat messages, or catch up on the chat messages FROM TODAY ONLY. This will trigger the summarization of the chat messages. This is only relevant for queries about TODDAY chat. A query across a broader timespan is classified as ask_question
 - ask_question: Ask a question or learn from the collective knowledge of the group. This will trigger the knowledge base to answer the question.
 - expense: Track shared expenses like Splitwise. This includes adding expenses (e.g., "שילמתי 50 שקל על פיצה לכולם") or querying balances (e.g., "כמה כל אחד חייב?", "מי חייב למי?"). Keywords: שילמתי, הוצאתי, קניתי, חייב, מאזן, הוצאות.
+- countdown: Ask about how long until the trip, or set/update trip dates. Keywords: כמה זמן עד הטיסה, כמה ימים עד, מתי הטיסה, מתי נוסעים, תאריכי הטיול, נוסעים ב, טסים ב, הטיסה ב.
 - about: Learn about me(bot) and my capabilities. This will trigger the about section.
 - other:  something else. This will trigger the default response."""
     )
@@ -59,6 +62,9 @@ class Router(BaseHandler):
         self.expense_handler = ExpenseHandler(
             session, whatsapp, embedding_client, settings
         )
+        self.countdown_handler = CountdownHandler(
+            session, whatsapp, embedding_client, settings
+        )
         super().__init__(session, whatsapp, embedding_client)
 
     async def __call__(self, message: Message):
@@ -76,6 +82,9 @@ class Router(BaseHandler):
             case IntentEnum.expense:
                 logger.info("Routing to ExpenseHandler")
                 await self.expense_handler(message)
+            case IntentEnum.countdown:
+                logger.info("Routing to CountdownHandler")
+                await self.countdown_handler(message)
             case IntentEnum.about:
                 await self.about(message)
             case IntentEnum.other:
@@ -127,15 +136,46 @@ class Router(BaseHandler):
         )
 
     async def about(self, message):
+        about_message = (
+            "היי! 👋 אני בוטיול, בוט קוד פתוח שנוצר לקהילת GenAI Israel.\n\n"
+            "מה אני יכול לעשות?\n"
+            "• לסכם את השיחה - \"מה פספסתי?\"\n"
+            "• לענות על שאלות מהיסטוריית הקבוצה\n"
+            "• לעקוב אחרי הוצאות משותפות\n\n"
+            "פשוט תייגו אותי עם @ ואני אעזור! 🙌\n\n"
+            "קוד מקור: https://github.com/ilanbenb/wa_llm ⭐️"
+        )
         await self.send_message(
             message.chat_jid,
-            "I'm an open-source bot created for the GenAI Israel community - https://llm.org.il.\nI can help you catch up on the chat messages and answer questions based on the group's knowledge.\nPlease send me PRs and star me at https://github.com/ilanbenb/wa_llm ⭐️",
+            about_message,
             # in_reply_to=message.message_id,
         )
 
     async def default_response(self, message):
+        import random
+        
+        responses = [
+            (
+                "אוי, זה משהו שאני לא יודע... 🤷\n"
+                "אבל אני יכול לסכם את הצ'אט או לענות על שאלות לגבי מה שדיברתם כבר!"
+            ),
+            (
+                "הממ, לא בטוח שאני יודע לעזור עם זה 🤔\n"
+                "נסו לשאול אותי על משהו שדיברתם בקבוצה, או תבקשו סיכום של השיחה!"
+            ),
+            (
+                "לא מצאתי תשובה לזה 🔍\n"
+                "אני טוב יותר בלענות על שאלות מהיסטוריית הקבוצה.\n"
+                "נסו: \"מה פספסתי?\" או שאלות על מה שדיברתם."
+            ),
+            (
+                "סליחה, לא הצלחתי לעזור עם זה 😅\n"
+                "אם יש לכם שאלות על הטיול או על מה שדובר בקבוצה - אשמח לעזור!"
+            ),
+        ]
+        
         await self.send_message(
             message.chat_jid,
-            "I'm sorry, but I dont think this is something I can help with right now 😅.\n I can help catch up on the chat messages or answer questions based on the group's knowledge.",
+            random.choice(responses),
             # in_reply_to=message.message_id,
         )

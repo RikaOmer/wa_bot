@@ -43,6 +43,18 @@ class BaseGroup(SQLModel):
         sa_column=Column(DateTime(timezone=True), nullable=False),
     )
 
+    # Bot welcome and trip tracking fields
+    welcomed: bool = Field(default=False)
+    destination_country: Optional[str] = Field(default=None, max_length=100)
+    trip_start_date: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+    )
+    trip_end_date: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+    )
+
     @field_validator("group_jid", "owner_jid", mode="before")
     @classmethod
     def normalize(cls, value: Optional[str]) -> str | None:

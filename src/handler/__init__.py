@@ -10,6 +10,7 @@ from handler.router import Router
 from handler.whatsapp_group_link_spam import WhatsappGroupLinkSpamHandler
 from handler.kb_qa import KBQAHandler
 from handler.trip_album import TripAlbumHandler, TripPhotoHandler
+from handler.welcome import WelcomeHandler
 from models import (
     WhatsAppWebhookPayload,
 )
@@ -41,6 +42,9 @@ class MessageHandler(BaseHandler):
             session, whatsapp, embedding_client, settings
         )
         self.trip_photo_handler = TripPhotoHandler(
+            session, whatsapp, embedding_client, settings
+        )
+        self.welcome_handler = WelcomeHandler(
             session, whatsapp, embedding_client, settings
         )
         self.settings = settings
@@ -135,8 +139,18 @@ class MessageHandler(BaseHandler):
         if message and message.group and not message.group.managed:
             return
 
+        # Send welcome message for new managed groups
+        if message.group and message.group.managed:
+            await self.welcome_handler.send_welcome_if_new(message)
+
         mentioned = message.has_mentioned(my_jid)
         if mentioned:
+            # Check if this is a destination setting message (if no destination set yet)
+            if message.group and not message.group.destination_country:
+                destination_set = await self.welcome_handler.handle_set_destination(message)
+                if destination_set:
+                    return  # Destination was set, no need to route further
+            
             await self.router(message)
             return
 
