@@ -22,6 +22,14 @@ class KBTopicBase(SQLModel):
     speakers: str
     subject: str
     summary: str
+    # JSON array of location objects: [{name, type, context}, ...]
+    locations: Optional[str] = Field(default=None)
+    # JSON array of event objects: [{title, date, time, type, context}, ...]
+    events: Optional[str] = Field(default=None)
+    # JSON array of preference objects: [{category, preference, sentiment, mentioned_by}, ...]
+    preferences: Optional[str] = Field(default=None)
+    # JSON sentiment object: {overall, excitement, concern, agreement, key_emotions}
+    sentiment: Optional[str] = Field(default=None)
 
 
 class KBTopicCreate(KBTopicBase):

@@ -11,6 +11,11 @@ from voyageai.client_async import AsyncClient
 
 from handler.knowledge_base_answers import KnowledgeBaseAnswers
 from handler.expense import ExpenseHandler
+from handler.countdown import CountdownHandler
+from handler.location import LocationHandler
+from handler.events import EventHandler
+from handler.recommendations import RecommendationHandler
+from handler.packing import PackingHandler
 from models import Message
 from whatsapp.jid import parse_jid
 from utils.chat_text import chat2text
@@ -29,6 +34,11 @@ class IntentEnum(str, Enum):
     summarize = "summarize"
     ask_question = "ask_question"
     expense = "expense"
+    countdown = "countdown"
+    location_info = "location_info"
+    event_query = "event_query"
+    recommendation = "recommendation"
+    packing = "packing"
     about = "about"
     other = "other"
 
@@ -39,6 +49,11 @@ class Intent(BaseModel):
 - summarize: Summarize TODAY's chat messages, or catch up on the chat messages FROM TODAY ONLY. This will trigger the summarization of the chat messages. This is only relevant for queries about TODDAY chat. A query across a broader timespan is classified as ask_question
 - ask_question: Ask a question or learn from the collective knowledge of the group. This will trigger the knowledge base to answer the question.
 - expense: Track shared expenses like Splitwise. This includes adding expenses (e.g., "שילמתי 50 שקל על פיצה לכולם") or querying balances (e.g., "כמה כל אחד חייב?", "מי חייב למי?"). Keywords: שילמתי, הוצאתי, קניתי, חייב, מאזן, הוצאות.
+- countdown: Ask about how long until the trip, or set/update trip dates. Keywords: כמה זמן עד הטיסה, כמה ימים עד, מתי הטיסה, מתי נוסעים, תאריכי הטיול, נוסעים ב, טסים ב, הטיסה ב.
+- location_info: Ask about a specific place, restaurant, hotel, or attraction. This includes questions like "What time does X open?", "Is Y any good?", "Tell me about Z restaurant", "What's recommended at X?", "מתי פתוח?", "מה מומלץ שם?", "ספר לי על המסעדה".
+- event_query: Ask about planned events, flights, reservations, or the trip schedule. Keywords: מה התוכניות, מה מתוכנן, מתי הטיסה, לוח זמנים, אירועים, הזמנות, what's planned, schedule, timeline, when is.
+- recommendation: Ask for recommendations or suggestions for restaurants, activities, places to visit. Keywords: תמליץ, מה כדאי, איפה לאכול, מה לעשות, recommend, suggest, where should we, what should we.
+- packing: Ask about what to pack or create a packing list. Keywords: מה לארוז, רשימת ציוד, מה לקחת, packing list, what to pack, what to bring.
 - about: Learn about me(bot) and my capabilities. This will trigger the about section.
 - other:  something else. This will trigger the default response."""
     )
@@ -59,6 +74,21 @@ class Router(BaseHandler):
         self.expense_handler = ExpenseHandler(
             session, whatsapp, embedding_client, settings
         )
+        self.countdown_handler = CountdownHandler(
+            session, whatsapp, embedding_client, settings
+        )
+        self.location_handler = LocationHandler(
+            session, whatsapp, embedding_client, settings
+        )
+        self.event_handler = EventHandler(
+            session, whatsapp, embedding_client, settings
+        )
+        self.recommendation_handler = RecommendationHandler(
+            session, whatsapp, embedding_client, settings
+        )
+        self.packing_handler = PackingHandler(
+            session, whatsapp, embedding_client, settings
+        )
         super().__init__(session, whatsapp, embedding_client)
 
     async def __call__(self, message: Message):
@@ -76,6 +106,21 @@ class Router(BaseHandler):
             case IntentEnum.expense:
                 logger.info("Routing to ExpenseHandler")
                 await self.expense_handler(message)
+            case IntentEnum.countdown:
+                logger.info("Routing to CountdownHandler")
+                await self.countdown_handler(message)
+            case IntentEnum.location_info:
+                logger.info("Routing to LocationHandler")
+                await self.location_handler(message)
+            case IntentEnum.event_query:
+                logger.info("Routing to EventHandler")
+                await self.event_handler(message)
+            case IntentEnum.recommendation:
+                logger.info("Routing to RecommendationHandler")
+                await self.recommendation_handler(message)
+            case IntentEnum.packing:
+                logger.info("Routing to PackingHandler")
+                await self.packing_handler(message)
             case IntentEnum.about:
                 await self.about(message)
             case IntentEnum.other:
@@ -127,15 +172,89 @@ class Router(BaseHandler):
         )
 
     async def about(self, message):
+        about_message = (
+            "היי! 👋 אני בוטיול - העוזר החכם לקבוצות טיולים!\n\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "📝 *סיכום ושאלות*\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "• \"מה פספסתי?\" - סיכום השיחה של היום\n"
+            "• \"מה דיברנו על...?\" - חיפוש בהיסטוריית הקבוצה\n"
+            "• אני זוכר הכל ויכול לענות על שאלות!\n\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "📍 *מקומות והמלצות*\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "• \"ספר לי על מסעדת X\" - מידע על מקום ספציפי\n"
+            "• \"מתי פתוח X?\" - שעות פתיחה\n"
+            "• \"תמליץ על מסעדה\" - המלצות מותאמות לקבוצה\n"
+            "• \"X או Y?\" - השוואה והמלצה\n\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "📅 *תכנון הטיול*\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "• \"מה התוכניות?\" - אירועים שדיברתם עליהם\n"
+            "• \"כמה ימים עד הטיסה?\" - ספירה לאחור\n"
+            "• \"לוח זמנים\" - צפייה בתוכנית הטיול\n"
+            "• \"הוסף לבוקר יום X: פעילות\" - הוספה ללוח\n"
+            "• \"צור לוח זמנים\" - יצירה אוטומטית מאירועים\n\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "💰 *מעקב הוצאות*\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "• \"שילמתי 50 שקל על פיצה לכולם\" - הוספת הוצאה\n"
+            "• \"שילמתי 100 על @פלוני ו@אלמוני\" - הוצאה לאנשים ספציפיים\n"
+            "• \"כמה כל אחד חייב?\" - מאזן הוצאות\n\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "🗳️ *הצבעות*\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "• \"הצבעה: פיצה או סושי או המבורגר\" - יצירת הצבעה\n"
+            "• \"1\" / \"2\" / \"3\" - להצביע\n"
+            "• \"תוצאות הצבעה\" - צפייה בתוצאות\n"
+            "• \"סגור הצבעה\" - סגירת ההצבעה\n\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "🎒 *עוד כלים שימושיים*\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "• \"מה לארוז?\" - רשימת ציוד חכמה ליעד\n"
+            "• \"איך מרגישה הקבוצה?\" - ניתוח מצב רוח\n\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "💡 *טיפים*\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "• תייגו אותי עם @ לפני כל בקשה\n"
+            "• אני לומד מהשיחות - ככל שתשתפו יותר, אעזור יותר!\n"
+            "• שתפו פרטי טיסות/הזמנות ואזכור אותם\n\n"
+            "קוד פתוח: github.com/ilanbenb/wa_llm ⭐️"
+        )
         await self.send_message(
             message.chat_jid,
-            "I'm an open-source bot created for the GenAI Israel community - https://llm.org.il.\nI can help you catch up on the chat messages and answer questions based on the group's knowledge.\nPlease send me PRs and star me at https://github.com/ilanbenb/wa_llm ⭐️",
+            about_message,
             # in_reply_to=message.message_id,
         )
 
     async def default_response(self, message):
+        import random
+        
+        responses = [
+            (
+                "אוי, זה משהו שאני לא יודע... 🤷\n"
+                "אבל אני יכול לעזור עם הרבה דברים אחרים!\n"
+                "💡 תגידו \"מה אתה יודע לעשות?\" לרשימה מלאה"
+            ),
+            (
+                "הממ, לא בטוח שאני יודע לעזור עם זה 🤔\n"
+                "נסו לשאול אותי על משהו שדיברתם בקבוצה, או תבקשו סיכום של השיחה!\n"
+                "💡 \"מה אתה יודע לעשות?\" - לכל האפשרויות"
+            ),
+            (
+                "לא מצאתי תשובה לזה 🔍\n"
+                "אני יכול לעזור עם סיכומים, המלצות, הוצאות, הצבעות ועוד!\n"
+                "💡 תגידו \"מה אתה יודע לעשות?\" לראות הכל"
+            ),
+            (
+                "סליחה, לא הצלחתי לעזור עם זה 😅\n"
+                "אם יש לכם שאלות על הטיול או על מה שדובר בקבוצה - אשמח לעזור!\n"
+                "💡 \"מה אתה יודע לעשות?\" - לכל הפיצ'רים שלי"
+            ),
+        ]
+        
         await self.send_message(
             message.chat_jid,
-            "I'm sorry, but I dont think this is something I can help with right now 😅.\n I can help catch up on the chat messages or answer questions based on the group's knowledge.",
+            random.choice(responses),
             # in_reply_to=message.message_id,
         )

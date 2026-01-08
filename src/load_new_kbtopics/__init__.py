@@ -1,7 +1,8 @@
 import hashlib
+import json
 import logging
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, PrivateAttr
 from pydantic_ai import Agent, ModelSettings
@@ -27,10 +28,99 @@ from whatsapp import WhatsAppClient
 logger = logging.getLogger(__name__)
 
 
+class Location(BaseModel):
+    """A location mentioned in a conversation topic."""
+
+    name: str = Field(description="The name of the place (e.g., 'Cafe Yafa', 'Central Park')")
+    type: str = Field(
+        description="Category of the location (restaurant, cafe, hotel, attraction, landmark, beach, neighborhood, city, etc.)"
+    )
+    context: Literal["recommended", "warned_against", "visited", "planned", "asked_about"] = Field(
+        description="Why the location was mentioned in the conversation"
+    )
+
+
+class Event(BaseModel):
+    """An event or plan mentioned in a conversation topic."""
+
+    title: str = Field(description="Brief description of the event (e.g., 'Flight to Barcelona')")
+    date: Optional[str] = Field(
+        default=None,
+        description="Date of the event in YYYY-MM-DD format, or null if unclear"
+    )
+    time: Optional[str] = Field(
+        default=None,
+        description="Time of the event in HH:MM format, or null if unclear"
+    )
+    type: Literal["flight", "hotel_checkin", "hotel_checkout", "activity", "tour", "reservation", "meeting", "deadline"] = Field(
+        description="Category of the event"
+    )
+    context: Literal["confirmed", "tentative", "suggested", "cancelled"] = Field(
+        description="Status of the event"
+    )
+
+
+class Preference(BaseModel):
+    """A preference expressed by a group member."""
+
+    category: Literal["food", "activity", "accommodation", "transport", "budget", "schedule"] = Field(
+        description="What the preference relates to"
+    )
+    preference: str = Field(
+        description="The specific preference (e.g., 'vegetarian', 'budget-friendly', 'adventure activities')"
+    )
+    sentiment: Literal["positive", "negative", "neutral"] = Field(
+        description="How they feel about it"
+    )
+    mentioned_by: str = Field(
+        description="The speaker tag who expressed this preference (e.g., '@user_1')"
+    )
+
+
+class TopicSentiment(BaseModel):
+    """Sentiment analysis of a conversation topic."""
+
+    overall: Literal["positive", "negative", "neutral", "mixed"] = Field(
+        description="The dominant sentiment"
+    )
+    excitement: float = Field(
+        ge=0.0, le=1.0,
+        description="Level of excitement/enthusiasm (0.0 to 1.0)"
+    )
+    concern: float = Field(
+        ge=0.0, le=1.0,
+        description="Level of worry/concern (0.0 to 1.0)"
+    )
+    agreement: float = Field(
+        ge=0.0, le=1.0,
+        description="How much the group agrees on this topic (0.0 to 1.0)"
+    )
+    key_emotions: List[str] = Field(
+        default_factory=list,
+        description="List of notable emotions (excited, happy, worried, frustrated, etc.)"
+    )
+
+
 class Topic(BaseModel):
     subject: str = Field(description="The subject of the topic")
     summary: str = Field(
         description="A concise summary of the topic discussed. Credit notable insights to the speaker by tagging them (e.g, @user_1)"
+    )
+    locations: List[Location] = Field(
+        default_factory=list,
+        description="List of specific locations mentioned in this topic"
+    )
+    events: List[Event] = Field(
+        default_factory=list,
+        description="List of events or plans mentioned in this topic"
+    )
+    preferences: List[Preference] = Field(
+        default_factory=list,
+        description="List of preferences expressed in this topic"
+    )
+    sentiment: Optional[TopicSentiment] = Field(
+        default=None,
+        description="Sentiment analysis of this topic"
     )
     _speaker_map: Dict[str, str] = PrivateAttr()
 
@@ -221,6 +311,10 @@ async def load_topics(
             speakers=",".join(topic._speaker_map.values()),
             summary=_deid_text(topic.summary, topic._speaker_map),
             subject=_deid_text(topic.subject, topic._speaker_map),
+            locations=json.dumps([loc.model_dump() for loc in topic.locations]) if topic.locations else None,
+            events=json.dumps([evt.model_dump() for evt in topic.events]) if topic.events else None,
+            preferences=json.dumps([pref.model_dump() for pref in topic.preferences]) if topic.preferences else None,
+            sentiment=json.dumps(topic.sentiment.model_dump()) if topic.sentiment else None,
         )
         for topic, emb in zip(topics, topics_embeddings)
     ]

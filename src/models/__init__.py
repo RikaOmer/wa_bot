@@ -8,6 +8,8 @@ from .webhook import WhatsAppWebhookPayload
 from .opt_out import OptOut
 from .trip_album import TripAlbum
 from .expense import Expense, ExpenseParticipant
+from .poll import Poll
+from .itinerary import ItineraryItem
 
 __all__ = [
     "Group",
@@ -27,4 +29,6 @@ __all__ = [
     "TripAlbum",
     "Expense",
     "ExpenseParticipant",
+    "Poll",
+    "ItineraryItem",
 ]
