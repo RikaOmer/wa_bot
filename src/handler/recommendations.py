@@ -137,6 +137,8 @@ class RecommendationHandler(BaseHandler):
         Returns:
             List of LocationContext objects
         """
+        if message.text is None:
+            return []
         # Get query embedding
         query_embedding = (
             await voyage_embed_text(self.embedding_client, [message.text])

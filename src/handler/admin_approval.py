@@ -69,6 +69,9 @@ class AdminApprovalHandler(BaseHandler):
         if not message.reply_to_id:
             return False
 
+        if not message.text:
+            return False
+
         text = message.text.strip().lower()
         if text not in ("enable", "disable"):
             return False
