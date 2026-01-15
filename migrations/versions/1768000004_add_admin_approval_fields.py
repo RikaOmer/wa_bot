@@ -37,3 +37,6 @@ def downgrade() -> None:
     op.drop_column("group", "added_by_jid")
     op.drop_column("group", "pending_approval")
 
+
+
+

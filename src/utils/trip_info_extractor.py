@@ -90,3 +90,6 @@ async def extract_trip_info(
 
     return result.output
 
+
+
+

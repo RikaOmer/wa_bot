@@ -37,3 +37,6 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_table("trip_album")
 
+
+
+

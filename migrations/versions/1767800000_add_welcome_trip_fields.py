@@ -47,3 +47,6 @@ def downgrade() -> None:
     op.drop_column("group", "destination_country")
     op.drop_column("group", "welcomed")
 
+
+
+
